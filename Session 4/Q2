@@ -1,0 +1,37 @@
+--Minimum CPUs for Task Scheduling
+WITH valid_tasks AS (
+    SELECT DISTINCT
+        task_id,
+        start_time,
+        end_time
+    FROM task_schedule
+    WHERE start_time IS NOT NULL
+      AND end_time IS NOT NULL
+),
+
+events AS (
+    SELECT
+        start_time AS event_time,
+        1 AS cpu_change
+    FROM valid_tasks
+
+    UNION ALL
+
+    SELECT
+        end_time AS event_time,
+        -1 AS cpu_change
+    FROM valid_tasks
+),
+
+running_tasks AS (
+    SELECT
+        event_time,
+        SUM(cpu_change) OVER (
+            ORDER BY event_time, cpu_change
+            ROWS UNBOUNDED PRECEDING
+        ) AS concurrent_tasks
+    FROM events
+)
+
+SELECT MAX(concurrent_tasks) AS min_cpus_required
+FROM running_tasks;

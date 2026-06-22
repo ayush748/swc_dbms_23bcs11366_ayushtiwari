@@ -1,0 +1,72 @@
+--Search Click Success Rate by User Segment
+WITH max_dataset_date AS (
+    SELECT MAX(event_timestamp::date) AS max_date
+    FROM search_events
+),
+
+user_segments AS (
+    SELECT
+        a.user_id,
+        CASE
+            WHEN a.registration_date >= m.max_date - INTERVAL '30 days'
+                THEN 'new'
+            ELSE 'existing'
+        END AS user_segment
+    FROM accounts a
+    CROSS JOIN max_dataset_date m
+),
+
+searches AS (
+    SELECT
+        event_id,
+        user_id,
+        session_id,
+        event_timestamp AS search_ts
+    FROM search_events
+    WHERE event_type = 'search'
+),
+
+search_outcomes AS (
+    SELECT
+        s.event_id,
+        s.user_id,
+        MIN(c.event_timestamp) AS first_click_ts
+    FROM searches s
+    LEFT JOIN search_events c
+        ON c.user_id = s.user_id
+       AND c.session_id = s.session_id
+       AND c.event_type = 'click'
+       AND c.event_timestamp > s.search_ts
+    GROUP BY s.event_id, s.user_id
+)
+
+SELECT
+    us.user_segment,
+    COUNT(*) AS total_searches,
+    COUNT(*) FILTER (
+        WHERE so.first_click_ts IS NOT NULL
+          AND so.first_click_ts <= (
+                (SELECT search_ts
+                 FROM searches s
+                 WHERE s.event_id = so.event_id)
+                + INTERVAL '30 seconds'
+              )
+    ) AS successful_searches,
+    ROUND(
+        COUNT(*) FILTER (
+            WHERE so.first_click_ts IS NOT NULL
+              AND so.first_click_ts <= (
+                    (SELECT search_ts
+                     FROM searches s
+                     WHERE s.event_id = so.event_id)
+                    + INTERVAL '30 seconds'
+                  )
+        )::NUMERIC
+        / COUNT(*),
+        4
+    ) AS success_rate
+FROM search_outcomes so
+JOIN user_segments us
+    ON so.user_id = us.user_id
+GROUP BY us.user_segment
+ORDER BY us.user_segment;

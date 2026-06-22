@@ -1,0 +1,11 @@
+--user retention
+SELECT
+    EXTRACT(MONTH FROM DATE '2022-07-01') AS month,
+    COUNT(DISTINCT ua.user_id) AS monthly_active_users
+FROM user_actions ua
+WHERE DATE_TRUNC('month', ua.event_date) = DATE '2022-07-01'
+  AND ua.user_id IN (
+      SELECT DISTINCT user_id
+      FROM user_actions
+      WHERE DATE_TRUNC('month', event_date) = DATE '2022-06-01'
+  );

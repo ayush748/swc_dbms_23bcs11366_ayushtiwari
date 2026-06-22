@@ -1,0 +1,6 @@
+--sql third transaction
+WITH ranked_transactions AS (
+    SELECT user_id, spend, transaction_date, 
+    ROW_NUMBER() OVER ( PARTITION BY user_id ORDER BY transaction_date ) AS rn
+    FROM transactions )
+SELECT * FROM ranked_transactions WHERE rn = 3;

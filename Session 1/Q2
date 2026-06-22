@@ -1,0 +1,57 @@
+--Daily Revenue
+WITH RECURSIVE date_series AS (
+    SELECT DATE '2025-04-15' AS transaction_date
+    UNION ALL
+    SELECT transaction_date + INTERVAL '1 day'
+    FROM date_series
+    WHERE transaction_date < DATE '2025-04-28'
+),
+
+eligible_purchases AS (
+    SELECT
+        transaction_id,
+        transaction_date,
+        amount
+    FROM product_sales
+    WHERE type = 'purchase'
+      AND status = 'completed'
+      AND product_id = 'PROD-2891'
+      AND country = 'US'
+      AND transaction_date BETWEEN DATE '2025-04-15'
+                               AND DATE '2025-04-28'
+),
+
+purchase_revenue AS (
+    SELECT
+        transaction_date,
+        SUM(amount) AS revenue
+    FROM eligible_purchases
+    GROUP BY transaction_date
+),
+
+refund_revenue AS (
+    SELECT
+        r.transaction_date,
+        -SUM(r.amount) AS revenue
+    FROM product_sales r
+    JOIN eligible_purchases p
+      ON r.original_transaction_id = p.transaction_id
+    WHERE r.type = 'refund'
+      AND r.status = 'completed'
+    GROUP BY r.transaction_date
+),
+
+daily_activity AS (
+    SELECT * FROM purchase_revenue
+    UNION ALL
+    SELECT * FROM refund_revenue
+)
+
+SELECT
+    ds.transaction_date,
+    COALESCE(SUM(da.revenue), 0) AS daily_net_revenue
+FROM date_series ds
+LEFT JOIN daily_activity da
+    ON ds.transaction_date = da.transaction_date
+GROUP BY ds.transaction_date
+ORDER BY ds.transaction_date;

@@ -1,0 +1,8 @@
+--supercloud customer
+SELECT cc.customer_id FROM customer_contracts as cc
+join products p 
+on cc.product_id=p.product_id
+group by cc.customer_id
+having count(DISTINCT p.product_category) = (
+SELECT count(distinct product_category) from products
+);
