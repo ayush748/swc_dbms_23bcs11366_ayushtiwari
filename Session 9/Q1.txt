@@ -1,0 +1,17 @@
+--Median Google Search Frequency
+WITH cte AS (
+    SELECT
+        searches,
+        generate_series(
+            SUM(num_users) OVER (ORDER BY searches) - num_users + 1,
+            SUM(num_users) OVER (ORDER BY searches)
+        ) AS pos,
+        SUM(num_users) OVER () AS total_users
+    FROM search_frequency
+)
+SELECT ROUND(AVG(searches)::numeric, 1) AS median
+FROM cte
+WHERE pos IN (
+    FLOOR((total_users + 1) / 2.0),
+    CEIL((total_users + 1) / 2.0)
+);
